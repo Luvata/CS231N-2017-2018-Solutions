@@ -105,7 +105,6 @@ def svm_loss_vectorized(W, X, y, reg):
   # dWT += np.dot(X.T,positive).T
   # dW = dWT.T.astype(float)
   positive[rows,cols] -= np.sum(positive,axis=1)
-
   dW = np.dot(X.T,positive)
   dW /= num_train
   dW += 2 * reg * W
