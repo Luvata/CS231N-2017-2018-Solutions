@@ -155,8 +155,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     momentum = bn_param.get('momentum', 0.9)
 
     N, D = x.shape
-    running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
-    running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
+    running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype)) # D
+    running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype)) # D
 
     out, cache = None, None
     if mode == 'train':
@@ -181,6 +181,16 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
+        sample_mean = x.mean(axis=0)
+        sample_var = x.var(axis=0)
+
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+        
+        x_norm = (x - sample_mean)/np.sqrt((sample_var + eps)) # norm to have gaussian distribution
+        
+        out = gamma*x_norm + beta
+        cache = [x,x_norm,gamma,beta,eps,sample_mean,sample_var]
         pass
         #######################################################################
         #                           END OF YOUR CODE                          #
@@ -192,6 +202,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
+        x_norm = (x - running_mean)/np.sqrt((running_var + eps)) # NxD
+        out = gamma * x_norm + beta
         pass
         #######################################################################
         #                          END OF YOUR CODE                           #
@@ -230,6 +242,16 @@ def batchnorm_backward(dout, cache):
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
     ###########################################################################
+    x,x_norm,gamma,beta,eps,sample_mean,sample_var = cache
+    m = x.shape[0]
+    dxnorm = dout * gamma # NxD
+    dvar = -1/2 * np.sum( dxnorm*(x-sample_mean)* np.power((sample_var+eps),-1.5),axis=0) # D
+    dmean = np.sum(dxnorm * (-1/np.sqrt(sample_var+eps)),axis=0) + -2 * dvar * np.mean(x-sample_mean,axis=0)
+    
+    dx = dxnorm * 1/np.sqrt(sample_var + eps) + dvar *2*(x-sample_mean)/m + dmean/m
+
+    dgamma = np.sum(dout*x_norm,axis=0)
+    dbeta = np.sum(dout,axis=0)
     pass
     ###########################################################################
     #                             END OF YOUR CODE                            #
